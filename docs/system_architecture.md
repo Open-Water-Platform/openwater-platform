@@ -1,6 +1,6 @@
 # System Architecture
 
-This document describes the high-level architecture of the open water quality monitoring system. It is the mental model contributors should hold in their heads when working on any part of the project. It is intentionally technology-agnostic — specific implementation choices (broker, database, languages, frameworks) are documented separately and may evolve over time. What is described here should not.
+This document describes the high-level architecture of the Open Water Platform system. It is the mental model contributors should hold in their heads when working on any part of the project. It is intentionally technology-agnostic — specific implementation choices (broker, database, languages, frameworks) are documented separately and may evolve over time. What is described here should not.
 
 ## Goals
 
