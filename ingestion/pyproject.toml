@@ -1,0 +1,40 @@
+[project]
+name = "owp-ingestion"
+version = "0.1.0"
+description = "Open Water Platform ingestion service: subscribes to MQTT, validates readings, and dispatches them downstream."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Open Water Platform contributors" },
+]
+keywords = ["mqtt", "iot", "water-quality", "ingestion", "open-water-platform"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: Apache Software License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "aiomqtt>=2.0,<3",
+  "pydantic>=2.5,<3",
+  "pydantic-settings>=2.0,<3",
+]
+
+[project.scripts]
+owp-ingestion = "owp_ingestion.main:run"
+
+[project.urls]
+Homepage = "https://github.com/Open-Water-Platform/openwater-platform"
+Repository = "https://github.com/Open-Water-Platform/openwater-platform"
+Issues = "https://github.com/Open-Water-Platform/openwater-platform/issues"
+
+[build-system]
+requires = ["hatchling>=1.18"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["owp_ingestion"]
