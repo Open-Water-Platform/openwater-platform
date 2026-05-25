@@ -1,0 +1,66 @@
+# Local development infrastructure for Open Water Platform.
+#
+# Runs the MQTT broker and the database the platform services need locally.
+# This file is intended for development and integration testing only;
+# production deployments are tracked separately (see infra/README.md).
+#
+# Usage from infra/docker/:
+#   cp .env.example .env
+#   docker compose up -d
+#
+# Services exposed on the host:
+#   - Mosquitto MQTT broker  -> tcp://127.0.0.1:1883
+#   - PostgreSQL + TimescaleDB -> postgresql://${POSTGRES_USER}@127.0.0.1:5432/${POSTGRES_DB}
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: owp-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    healthcheck:
+      # The Mosquitto image ships its own client; a successful local publish
+      # is the simplest end-to-end check that the broker accepts traffic.
+      test:
+        [
+          "CMD-SHELL",
+          "mosquitto_pub -h 127.0.0.1 -t healthcheck -m ok -q 0 || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  postgres:
+    image: timescale/timescaledb:2.17.2-pg16
+    container_name: owp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-owp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-owp}
+      POSTGRES_DB: ${POSTGRES_DB:-owp}
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-owp} -d ${POSTGRES_DB:-owp}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  pg_data:

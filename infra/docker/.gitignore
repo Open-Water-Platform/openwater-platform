@@ -1,0 +1,2 @@
+# Real .env carries credentials; only the .env.example template is committed.
+.env
