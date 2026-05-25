@@ -97,20 +97,6 @@ export OWP_MQTT_HOST=127.0.0.1
 # the database yet.)
 ```
 
-## What is NOT here
-
-- **Application schema and migrations.** Each service owns its own
-  tables and ships migrations alongside its code (e.g. an upcoming
-  `ingestion/migrations/`). The Postgres init script in
-  [`docker/postgres/init.sql`](docker/postgres/init.sql) only enables the
-  TimescaleDB extension; it does not create any application tables.
-- **Broker authentication and ACLs.** Anonymous access is fine on
-  `localhost` for development; production must use credentials and
-  per-device ACLs. Tracked as a follow-up.
-- **Production deployment manifests.** Out of scope for this slice; will
-  appear as `infra/helm/` or similar when production deployment work
-  begins.
-
 ## License
 
 Apache-2.0 - see the repository [`LICENSE`](../LICENSE).
