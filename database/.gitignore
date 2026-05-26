@@ -1,0 +1,4 @@
+# dbmate writes a local state file when run natively (not via Docker).
+# The committed truth for this directory is schema.sql plus the
+# migrations/ folder; we never commit local tooling state.
+.dbmate
