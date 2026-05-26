@@ -60,6 +60,23 @@ services:
       retries: 5
       start_period: 10s
 
+  # One-shot migration runner. Only starts when invoked explicitly with
+  # `docker compose --profile tools run --rm dbmate <command>`; never
+  # part of `docker compose up`.
+  dbmate:
+    image: amacneil/dbmate:2.21
+    profiles: ["tools"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "postgres://${POSTGRES_USER:-owp}:${POSTGRES_PASSWORD:-owp}@postgres:5432/${POSTGRES_DB:-owp}?sslmode=disable"
+    volumes:
+      # Mount the project's database/ folder so migrations/ and
+      # schema.sql are read and written in-place from the host.
+      - ../../database:/db
+    working_dir: /db
+
 volumes:
   mosquitto_data:
   mosquitto_log:

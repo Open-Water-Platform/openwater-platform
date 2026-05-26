@@ -27,8 +27,14 @@ reproducibility:
   [`docker/mosquitto/mosquitto.conf`](docker/mosquitto/mosquitto.conf).
 - **`postgres`** - [TimescaleDB](https://www.timescale.com/) (PostgreSQL +
   Timescale extension) on `tcp://127.0.0.1:5432`. Initial bootstrap
-  enables the TimescaleDB extension; application tables are added by
-  service migrations.
+  enables the TimescaleDB extension; application tables are created by
+  migrations in [`../../database/`](../database/) (run via the `dbmate`
+  tools-profile service below).
+- **`dbmate`** _(profile `tools`, on-demand only)_ -
+  [dbmate](https://github.com/amacneil/dbmate) migration runner that
+  applies SQL migrations from [`../../database/migrations/`](../database/migrations/).
+  Never auto-starts; invoke explicitly with
+  `docker compose --profile tools run --rm dbmate <command>`.
 
 ### Prerequisites
 
@@ -72,6 +78,22 @@ docker compose exec postgres psql -U owp -d owp -c "SELECT extname FROM pg_exten
 
 The `psql` output should list `timescaledb`.
 
+### Apply database migrations
+
+Application schema lives in [`../../database/`](../database/) and is
+applied with the `dbmate` tools-profile service:
+
+```bash
+docker compose --profile tools run --rm dbmate up         # apply pending migrations
+docker compose --profile tools run --rm dbmate status     # what is applied vs pending
+docker compose --profile tools run --rm dbmate new <slug> # scaffold a new migration
+```
+
+`dbmate up` rewrites [`../../database/schema.sql`](../database/schema.sql)
+after every successful apply; commit the updated snapshot together with
+the migration. See [`database/README.md`](../database/README.md) for the
+full workflow, the ownership rules, and migration conventions.
+
 ### Stop the stack
 
 ```bash
@@ -96,6 +118,13 @@ export OWP_MQTT_HOST=127.0.0.1
 # (Postgres wiring lands in a follow-up; the service does not connect to
 # the database yet.)
 ```
+
+## See also
+
+- [`database/README.md`](../database/README.md) - schema, migrations,
+  ownership rules.
+- [`docs/system_architecture.md`](../docs/system_architecture.md) - how
+  these pieces fit together end to end.
 
 ## License
 
