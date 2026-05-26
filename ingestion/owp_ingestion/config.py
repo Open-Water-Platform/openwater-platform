@@ -69,6 +69,50 @@ class Settings(BaseSettings):
         description="Maximum backoff (seconds) between reconnect attempts.",
     )
 
+    database_url: str = Field(
+        ...,
+        description=(
+            "PostgreSQL connection URL for the asyncpg pool, e.g. "
+            "'postgresql://owp:owp@127.0.0.1:5432/owp'."
+        ),
+    )
+    db_pool_min_size: int = Field(
+        default=1,
+        ge=1,
+        description="Minimum number of connections kept open in the asyncpg pool.",
+    )
+    db_pool_max_size: int = Field(
+        default=5,
+        ge=1,
+        description="Maximum number of connections the asyncpg pool may open.",
+    )
+    db_command_timeout: float = Field(
+        default=10.0,
+        gt=0,
+        description=(
+            "Per-statement timeout (seconds) applied by asyncpg. A timeout "
+            "surfaces as a retryable error to the write retry wrapper."
+        ),
+    )
+    db_write_max_attempts: int = Field(
+        default=10,
+        ge=1,
+        description=(
+            "Maximum in-process attempts to write a single event before "
+            "giving up and relying on broker redelivery."
+        ),
+    )
+    db_write_initial_delay: float = Field(
+        default=1.0,
+        gt=0,
+        description="Initial backoff (seconds) between write retries.",
+    )
+    db_write_max_delay: float = Field(
+        default=30.0,
+        gt=0,
+        description="Maximum backoff (seconds) between write retries.",
+    )
+
     log_level: str = Field(
         default="INFO",
         description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL).",
