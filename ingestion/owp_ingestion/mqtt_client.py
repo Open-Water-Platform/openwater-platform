@@ -1,10 +1,24 @@
-"""MQTT subscriber loop.
+"""MQTT subscriber loop with manual acknowledgement.
 
 Connects to the configured broker, subscribes to the readings topic,
 validates each incoming message against :class:`ReadingEvent`, and hands
-the result to a dispatch callback. For the current slice the default
-callback just logs; once a database layer lands, the writer plugs in
-here without touching this module.
+the result to a dispatch callback. The callback (typically
+:meth:`Database.write_event`) may either succeed, fail with
+:class:`WriteFailedError` after exhausting its in-process retries, or
+raise something unexpected.
+
+The subscriber acknowledges messages manually so the broker can
+redeliver any message we did not successfully process:
+
+* Successful write -> ACK; broker drops the message.
+* Permanently invalid payload (bad JSON, schema violation, non-bytes
+  body) -> ACK; the message would just fail again on redelivery, so we
+  drop it on our side and log it.
+* :class:`WriteFailedError` from the handler -> **no ACK**; broker
+  redelivers on next reconnect. This is the durability backstop that
+  protects against service crashes and prolonged DB outages.
+* Any other unexpected exception from the handler -> no ACK and a
+  full traceback in the logs.
 """
 
 from __future__ import annotations
@@ -17,6 +31,7 @@ import aiomqtt
 from pydantic import ValidationError
 
 from .config import Settings
+from .db import WriteFailedError
 from .models import ReadingEvent
 
 logger = logging.getLogger(__name__)
@@ -28,7 +43,12 @@ _READINGS_TOPIC_DEVICE_SEGMENT: Final[int] = 3
 
 
 async def _log_event(event: ReadingEvent) -> None:
-    """Default handler: structured log line for each validated event."""
+    """Fallback handler used when no DB writer is supplied (e.g. in tests).
+
+    Real production runs always pass :meth:`Database.write_event` from
+    :mod:`.main`; this fallback exists so :func:`run_subscriber` stays
+    usable in isolation.
+    """
 
     logger.info(
         "received reading event device_id=%s timestamp=%s readings=%d firmware=%s",
@@ -59,9 +79,9 @@ async def run_subscriber(
     """Connect to the broker and process readings until cancelled.
 
     Raises :class:`aiomqtt.MqttError` on connection failure so the outer
-    supervisor (in ``main.py``) can apply its backoff policy. All
-    per-message errors (invalid JSON, schema violations) are caught and
-    logged so a single bad payload cannot stop the subscriber.
+    supervisor (in ``main.py``) can apply its backoff policy. Per-message
+    errors are caught here so a single bad payload cannot kill the loop;
+    only connection-level failures propagate.
     """
 
     on_event = handler or _log_event
@@ -80,25 +100,34 @@ async def run_subscriber(
         password=settings.mqtt_password,
         identifier=settings.mqtt_client_id,
     ) as client:
+        # Enable manual ack on the underlying paho client. aiomqtt
+        # intentionally does not surface this in its public API, but the
+        # paho `manual_ack_set` toggle is the supported way to keep
+        # PUBACK responsibility on the application side.
+        client._client.manual_ack_set(True)
+
         await client.subscribe(settings.mqtt_topic, qos=settings.mqtt_qos)
         logger.info(
-            "subscribed topic=%s qos=%d",
+            "subscribed topic=%s qos=%d manual_ack=true",
             settings.mqtt_topic,
             settings.mqtt_qos,
         )
 
         async for message in client.messages:
-            await _handle_message(message, on_event)
+            await _handle_message(client, message, on_event)
 
 
 async def _handle_message(
+    client: aiomqtt.Client,
     message: aiomqtt.Message,
     on_event: EventHandler,
 ) -> None:
-    """Validate a single MQTT message and forward it to ``on_event``.
+    """Validate a single MQTT message, forward it, and ack on success.
 
-    Validation and dispatch errors are caught and logged here; they never
-    propagate so that one bad payload cannot kill the subscriber loop.
+    Acks for permanently-rejected payloads happen here too, so the
+    broker doesn't redeliver something that will only fail again.
+    Withholding an ack (the failure paths below) is what causes broker
+    redelivery on next reconnect.
     """
 
     topic = str(message.topic)
@@ -106,6 +135,7 @@ async def _handle_message(
 
     if not isinstance(payload, (bytes, bytearray)):
         logger.warning("ignoring non-bytes payload topic=%s", topic)
+        _ack(client, message)
         return
 
     try:
@@ -117,9 +147,11 @@ async def _handle_message(
             exc.error_count(),
             payload[:200],
         )
+        _ack(client, message)
         return
     except ValueError as exc:
         logger.warning("malformed JSON topic=%s error=%s", topic, exc)
+        _ack(client, message)
         return
 
     topic_device_id = _device_id_from_topic(topic)
@@ -133,9 +165,33 @@ async def _handle_message(
 
     try:
         await on_event(event)
-    except Exception:  # pragma: no cover - defensive
-        logger.exception(
-            "event handler failed device_id=%s timestamp=%s",
+    except WriteFailedError:
+        logger.error(
+            "write failed terminally device_id=%s timestamp=%s; withholding ack "
+            "for broker redelivery",
             event.device_id,
             event.timestamp.isoformat(),
         )
+        return
+    except Exception:
+        logger.exception(
+            "event handler raised unexpectedly device_id=%s timestamp=%s; "
+            "withholding ack for broker redelivery",
+            event.device_id,
+            event.timestamp.isoformat(),
+        )
+        return
+
+    _ack(client, message)
+
+
+def _ack(client: aiomqtt.Client, message: aiomqtt.Message) -> None:
+    """Send a PUBACK for ``message`` via the underlying paho client.
+
+    paho's ``ack`` is synchronous; it merely enqueues the PUBACK on
+    paho's send buffer and returns, so calling it from async code is
+    safe. Returns no value; failures (unknown mid, already-acked) are
+    paho's responsibility to log.
+    """
+
+    client._client.ack(message.mid, message.qos)

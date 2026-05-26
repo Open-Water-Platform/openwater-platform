@@ -1,19 +1,30 @@
 # Open Water Platform - Ingestion Service
 
 A Python service that subscribes to the MQTT broker, validates incoming
-sensor readings against the v1 payload contract, and (eventually) writes
-them to the database. See [`docs/system_architecture.md`](../docs/system_architecture.md#ingestion-service)
+sensor readings against the v1 payload contract, and writes them to the
+database. See [`docs/system_architecture.md`](../docs/system_architecture.md#ingestion-service)
 for where this component sits in the overall system.
 
-> **Status.** This slice covers MQTT subscription + payload validation only.
-> Validated events are logged. Database writes, the `status`/`commands`
-> topics, and broker authentication hardening are tracked as follow-up work.
+> **Status.** Subscription, validation, and durable database writes are
+> implemented. The `status` and `commands` topics, broker authentication
+> hardening, and service-specific Postgres roles are tracked as
+> follow-ups.
+
+Durability: each event is written under a two-layer policy. In-process
+retries (exponential backoff) handle short DB blips locally; if those
+are exhausted the message is **not** acknowledged to the broker, so MQTT
+QoS 1 redelivers it on the next reconnect. The composite primary key on
+`readings` makes redelivery a free no-op.
 
 ## Requirements
 
 - Python 3.11 or newer.
 - An MQTT broker the service can reach (any MQTT v3.1.1/v5 broker; locally
-  [Mosquitto](https://mosquitto.org/) is the easiest).
+  [Mosquitto](https://mosquitto.org/) from [`infra/docker/`](../infra/docker/) is the easiest).
+- A reachable PostgreSQL database with the project's migrations applied.
+  Locally: bring up the stack in [`infra/docker/`](../infra/docker/) and
+  apply migrations via the `dbmate` tools profile (see
+  [`database/README.md`](../database/README.md)).
 
 ## Install
 
@@ -23,28 +34,32 @@ From the repository root:
 pip install -e ingestion/
 ```
 
-This installs the runtime dependencies (`aiomqtt`, `pydantic`,
+This installs the runtime dependencies (`aiomqtt`, `asyncpg`, `pydantic`,
 `pydantic-settings`) and registers the `owp-ingestion` console script.
 
 ## Run
 
-The only setting without a default is the broker hostname. Everything else
-is optional:
+Two settings have no defaults: the broker hostname and the database URL.
+Everything else is optional.
 
 ```bash
 export OWP_MQTT_HOST=broker.example.com
+export OWP_DATABASE_URL=postgresql://owp:owp@127.0.0.1:5432/owp
 owp-ingestion
 ```
 
-To point at a local broker:
+For the default local stack from [`infra/docker/`](../infra/docker/):
 
 ```bash
-OWP_MQTT_HOST=127.0.0.1 owp-ingestion
+OWP_MQTT_HOST=127.0.0.1 \
+OWP_DATABASE_URL=postgresql://owp:owp@127.0.0.1:5432/owp \
+owp-ingestion
 ```
 
-The service connects on startup; if the broker is unreachable it logs the
-error and retries with exponential backoff (1s, 2s, 4s, ... capped at 30s
-by default), so it is safe to start before the broker exists.
+The service opens its database pool at startup; if the database is
+unreachable, startup fails fast. Once running, transient DB and broker
+failures are handled in-process with exponential backoff and (for the
+broker) automatic reconnect, so the service stays up across blips.
 
 ## Configuration
 
@@ -61,8 +76,15 @@ All settings are read from environment variables prefixed `OWP_`. A local
 | `OWP_MQTT_TOPIC` | `owp/v1/devices/+/readings` | Topic filter to subscribe to. |
 | `OWP_MQTT_CLIENT_ID` | `owp-ingestion` | MQTT client identifier. |
 | `OWP_MQTT_QOS` | `1` | QoS level for the subscription (0, 1, or 2). |
-| `OWP_RECONNECT_INITIAL_DELAY` | `1.0` | Initial backoff (seconds) after disconnect. |
-| `OWP_RECONNECT_MAX_DELAY` | `30.0` | Maximum backoff between reconnects. |
+| `OWP_RECONNECT_INITIAL_DELAY` | `1.0` | Initial backoff (seconds) after MQTT disconnect. |
+| `OWP_RECONNECT_MAX_DELAY` | `30.0` | Maximum backoff between MQTT reconnects. |
+| `OWP_DATABASE_URL` | _required_ | PostgreSQL connection URL for the asyncpg pool. |
+| `OWP_DB_POOL_MIN_SIZE` | `1` | Minimum asyncpg pool size. |
+| `OWP_DB_POOL_MAX_SIZE` | `5` | Maximum asyncpg pool size. |
+| `OWP_DB_COMMAND_TIMEOUT` | `10.0` | Per-statement timeout (seconds); surfaces as a retryable error. |
+| `OWP_DB_WRITE_MAX_ATTEMPTS` | `10` | Max in-process write attempts before relying on broker redelivery. |
+| `OWP_DB_WRITE_INITIAL_DELAY` | `1.0` | Initial backoff (seconds) between write retries. |
+| `OWP_DB_WRITE_MAX_DELAY` | `30.0` | Maximum backoff between write retries. |
 | `OWP_LOG_LEVEL` | `INFO` | Logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`). |
 
 ## MQTT contract (v1)
@@ -156,7 +178,8 @@ ingestion/
     ├── __init__.py
     ├── config.py        # Settings (pydantic-settings)
     ├── models.py        # ReadingEvent / Reading / Location
-    ├── mqtt_client.py   # aiomqtt subscribe + validate + dispatch
+    ├── db.py            # asyncpg pool, idempotent writes, retry wrapper
+    ├── mqtt_client.py   # aiomqtt subscribe + validate + manual ack
     └── main.py          # asyncio entrypoint + reconnect supervisor
 ```
 

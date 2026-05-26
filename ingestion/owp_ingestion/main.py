@@ -5,6 +5,10 @@ on any ``MqttError`` (broker down, network blip, auth rejection) the
 subscriber is restarted with exponential backoff so the service stays up
 through transient broker outages.
 
+Also owns the lifecycle of the database connection pool: it is opened
+once at startup, shared with the subscriber via
+:meth:`Database.write_event`, and closed cleanly on shutdown.
+
 The synchronous :func:`run` function is the console-script entry point
 declared in ``pyproject.toml``.
 """
@@ -19,6 +23,7 @@ import sys
 import aiomqtt
 
 from .config import Settings, load_settings
+from .db import Database
 from .mqtt_client import run_subscriber
 
 logger = logging.getLogger(__name__)
@@ -34,19 +39,25 @@ def _configure_logging(level: str) -> None:
     )
 
 
-async def _supervise(settings: Settings, stop: asyncio.Event) -> None:
+async def _supervise(
+    settings: Settings,
+    database: Database,
+    stop: asyncio.Event,
+) -> None:
     """Run the subscriber forever, reconnecting on broker errors.
 
     Backoff starts at ``settings.reconnect_initial_delay`` and doubles up
     to ``settings.reconnect_max_delay``. The loop exits cleanly when
-    ``stop`` is set (e.g. by a SIGINT/SIGTERM handler).
+    ``stop`` is set (e.g. by a SIGINT/SIGTERM handler). The database is
+    shared across reconnect attempts so the pool stays warm even when
+    the broker drops.
     """
 
     delay = settings.reconnect_initial_delay
 
     while not stop.is_set():
         try:
-            await run_subscriber(settings)
+            await run_subscriber(settings, handler=database.write_event)
         except aiomqtt.MqttError as exc:
             logger.warning(
                 "MQTT connection error: %s; retrying in %.1fs",
@@ -108,9 +119,13 @@ async def _async_main() -> None:
     stop = asyncio.Event()
     _install_signal_handlers(asyncio.get_running_loop(), stop)
 
+    database = Database(settings)
+    await database.connect()
+
     try:
-        await _supervise(settings, stop)
+        await _supervise(settings, database, stop)
     finally:
+        await database.close()
         logger.info("owp-ingestion stopped")
 
 
