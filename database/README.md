@@ -9,15 +9,7 @@ Migrations are written in plain SQL and applied with
 Docker Compose service so contributors do not need to install anything
 new beyond Docker.
 
-## Layout
-
-```
-database/
-├── README.md           # this file
-├── schema.sql          # canonical human-readable schema snapshot
-└── migrations/
-    └── 20260526000000_initial_devices_and_readings.sql
-```
+## Rules
 
 - **`migrations/`** - one SQL file per change, ordered by a UTC timestamp
   prefix (`YYYYMMDDHHMMSS`). dbmate applies any file in this folder whose
