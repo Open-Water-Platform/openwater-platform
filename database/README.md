@@ -98,69 +98,6 @@ dbmate up
 The compose-based path stays the recommended default because it pins the
 dbmate version for every contributor.
 
-## Data model (v0)
-
-| Table | Owner | Purpose |
-|---|---|---|
-| `devices` | ingestion | One row per sensor device, registered on first message. |
-| `readings` | ingestion | Time-series sensor readings (TimescaleDB hypertable on `recorded_at`). |
-
-```mermaid
-erDiagram
-    devices ||--o{ readings : produces
-
-    devices {
-        TEXT device_id PK
-        TIMESTAMPTZ first_seen_at
-        TIMESTAMPTZ last_seen_at
-        TEXT firmware_version
-        DOUBLE_PRECISION location_lat
-        DOUBLE_PRECISION location_lon
-    }
-    readings {
-        TEXT device_id FK
-        TIMESTAMPTZ recorded_at PK
-        TEXT parameter PK
-        DOUBLE_PRECISION value
-        TEXT unit
-    }
-```
-
-- `devices` is a regular table. The ingestion service upserts it on first
-  sight of a device id.
-- `readings` is a TimescaleDB hypertable partitioned on `recorded_at`.
-  The composite primary key `(device_id, recorded_at, parameter)` gives
-  free idempotency for MQTT QoS 1 redeliveries via
-  `INSERT ... ON CONFLICT DO NOTHING`.
-- The DB column is `recorded_at`, not `timestamp`, to avoid quoting
-  Postgres's reserved type name. The MQTT payload field stays
-  `timestamp`; the ingestion service maps between the two when it lands.
-
-## Table ownership and the rule that comes with it
-
-Per [`docs/system_architecture.md`](../docs/system_architecture.md#database):
-
-> Although the database is shared, **table ownership is not**. Each table
-> is written by exactly one service.
-
-So far only ingestion owns tables. As `api/` and `ml/` arrive, each will
-add migrations here for its own tables; ownership stays declared in the
-top-of-file comment block and in the table above. Other services may
-freely `SELECT` from any table but must never `INSERT`/`UPDATE`/`DELETE`
-into tables they do not own. Enforcement via service-specific Postgres
-roles is tracked as a follow-up.
-
-## What is NOT here
-
-- **Application code.** No `db.py`, no asyncpg pools, no ORM models -
-  those live with each service (e.g. `ingestion/owp_ingestion/db.py` when
-  it lands).
-- **Service-specific Postgres roles and grants.** Today every connection
-  uses the bootstrap superuser from the compose `.env`. Locking writes
-  down per service is a follow-up.
-- **CI drift check.** A GitHub Actions job that applies all migrations
-  to a temp DB and diffs the resulting schema against
-  [`schema.sql`](schema.sql) is a follow-up.
 
 ## License
 
