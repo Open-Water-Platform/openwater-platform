@@ -1,0 +1,79 @@
+name: Feature request
+description: Propose an enhancement or new capability for OWP.
+title: "[Feature] "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for thinking about how to make OWP better. Please
+        describe the *problem* you are trying to solve before jumping
+        to a specific solution — sometimes there is a simpler answer
+        that was not obvious from the original framing.
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have searched existing issues and could not find a duplicate.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: >-
+        Describe the use case or pain point. Try to frame the problem
+        independently of any specific solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What change to OWP would address the problem?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about and why you ruled them out.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component most affected
+      options:
+        - ingestion service
+        - database / migrations
+        - API backend (planned)
+        - dashboard (planned)
+        - infra / Docker
+        - docs
+        - CI / tooling
+        - sensor firmware (planned)
+        - other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: spec-impact
+    attributes:
+      label: Specification impact
+      description: >-
+        Does this require a change to the OWP specification (payload
+        schema, topic shape, etc.)? If so, a spec change typically
+        needs to be discussed before the implementation lands.
+      options:
+        - label: This change requires a specification update.
+        - label: This change is purely an implementation detail.
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: Links, sketches, prior art, related issues.
