@@ -1,0 +1,20 @@
+# Configures the issue template chooser shown when a user clicks
+# "New issue" in the GitHub Issues tab.
+#
+# blank_issues_enabled: false   -> contributors must pick a template;
+#                                  no free-form "no info please help"
+#                                  issues can be filed.
+# contact_links                 -> non-issue destinations surfaced on
+#                                  the chooser page itself, so usage
+#                                  questions land in Discussions
+#                                  instead of clogging the issue
+#                                  tracker.
+blank_issues_enabled: false
+contact_links:
+  - name: Usage question or general discussion
+    url: https://github.com/Open-Water-Platform/openwater-platform/discussions
+    about: >-
+      For "how do I…?" questions, deployment help, and open-ended
+      discussion. Please ask in Discussions rather than filing an
+      issue. (If Discussions is not yet enabled on this repository,
+      a maintainer can turn it on in Settings → Features.)

@@ -1,0 +1,110 @@
+name: Bug report
+description: Report something in OWP that is not working as expected.
+title: "[Bug] "
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug report. The more
+        precise you can be, the faster a maintainer can reproduce and
+        fix it.
+
+        For usage questions ("how do I…?"), please use
+        [Discussions](https://github.com/Open-Water-Platform/openwater-platform/discussions)
+        instead.
+
+  - type: checkboxes
+    id: prechecks
+    attributes:
+      label: Pre-flight checklist
+      options:
+        - label: I have searched existing issues and could not find a duplicate.
+          required: true
+        - label: I have checked the relevant `docs/` and service `README.md`.
+          required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Which part of the platform does this issue concern?
+      options:
+        - ingestion service
+        - database / migrations
+        - infra (Docker, Mosquitto, Postgres, etc.)
+        - docs
+        - CI / tooling
+        - sensor firmware (planned)
+        - other
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: >-
+        Describe the observed behaviour. Paste error messages, logs, or
+        stack traces inside fenced code blocks so they stay readable.
+      placeholder: |
+        After publishing a reading event, the ingestion service crashed with:
+
+        ```
+        Traceback (most recent call last):
+          ...
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        The smallest reproduction you can manage. Include the exact
+        commands, the payload you published, env vars, etc.
+      placeholder: |
+        1. `cd infra/docker && docker compose up -d`
+        2. `docker compose --profile tools run --rm dbmate up`
+        3. Run `OWP_MQTT_HOST=127.0.0.1 OWP_DATABASE_URL=... uv run owp-ingestion`
+        4. Publish: `mosquitto_pub -h 127.0.0.1 -t 'owp/v1/devices/owp-0001/readings' -m '{...}'`
+        5. Observe the crash in ingestion logs.
+    validations:
+      required: true
+
+  - type: input
+    id: python-version
+    attributes:
+      label: Python version
+      placeholder: "3.12.4"
+
+  - type: input
+    id: os
+    attributes:
+      label: OS
+      placeholder: "Ubuntu 24.04 / Windows 11 / macOS 14"
+
+  - type: input
+    id: owp-version
+    attributes:
+      label: OWP version or commit
+      description: >-
+        Output of `git rev-parse --short HEAD`, or the version tag you
+        are running.
+      placeholder: "abc1234"
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Anything else?
+      description: >-
+        Logs, screenshots, related issues, broker/Postgres versions,
+        anything else that helps us reproduce or understand the bug.
