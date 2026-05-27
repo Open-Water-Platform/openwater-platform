@@ -8,17 +8,21 @@ If anything is unclear, please open an
 
 ## Issues
 
-We use GitHub issues to track public bugs and feature requests. Before
-filing a new issue, please search existing issues to avoid duplicates.
-Good bug reports include:
+We use GitHub issues to track public bugs and feature requests. When
+you click *New issue* on GitHub you'll be offered structured templates
+defined under
+[`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/):
 
-- What you did (the smallest reproduction you can manage).
-- What you expected to happen.
-- What actually happened (logs, stack traces, screenshots).
-- Your environment (OS, Python version, broker, database, anything
-  unusual).
+- **Bug report** — for something that is not working as expected.
+- **Feature request** — for proposing an enhancement or new capability.
 
-See [`ISSUE_TEMPLATE.md`](ISSUE_TEMPLATE.md) for the bigger picture.
+Please pick the closest template and fill in the required fields.
+Before filing, search existing issues to avoid duplicates.
+
+For usage questions (*how do I…?*), please ask in
+[Discussions](https://github.com/Open-Water-Platform/openwater-platform/discussions)
+rather than filing an issue. If Discussions is not yet enabled on the
+repository, a maintainer can turn it on in Settings → Features.
 
 ## Pull requests
 
