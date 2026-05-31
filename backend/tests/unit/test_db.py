@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from owp_backend.config import Settings
-from owp_backend.db import Database
+from owp_backend.db import Database, DeviceRow
 
 
 @pytest.mark.unit
@@ -57,3 +58,61 @@ async def test_ping_requires_connected_pool(test_settings: Settings) -> None:
 
     with pytest.raises(RuntimeError, match="connect"):
         await database.ping()
+
+
+def _sample_device_record() -> dict[str, object]:
+    now = datetime(2026, 5, 24, 19, 0, 0, tzinfo=timezone.utc)
+    return {
+        "device_id": "owp-0001",
+        "first_seen_at": now,
+        "last_seen_at": now,
+        "firmware_version": "0.1.0",
+        "location_lat": 12.34,
+        "location_lon": 56.78,
+    }
+
+
+@pytest.mark.unit
+async def test_list_devices_maps_rows(test_settings: Settings) -> None:
+    database = Database(test_settings)
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[_sample_device_record()])
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+    database._pool = mock_pool  # noqa: SLF001
+
+    devices = await database.list_devices(limit=10, offset=0)
+
+    assert len(devices) == 1
+    assert devices[0].device_id == "owp-0001"
+    mock_conn.fetch.assert_awaited_once()
+
+
+@pytest.mark.unit
+async def test_get_device_returns_none_when_missing(test_settings: Settings) -> None:
+    database = Database(test_settings)
+    mock_conn = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value=None)
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+    database._pool = mock_pool  # noqa: SLF001
+
+    device = await database.get_device("missing")
+
+    assert device is None
+
+
+@pytest.mark.unit
+async def test_device_exists(test_settings: Settings) -> None:
+    database = Database(test_settings)
+    mock_conn = AsyncMock()
+    mock_conn.fetchval = AsyncMock(return_value=1)
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+    database._pool = mock_pool  # noqa: SLF001
+
+    assert await database.device_exists("owp-0001") is True
+
