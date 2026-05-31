@@ -34,14 +34,18 @@ script.
 
 ## Run
 
-One setting has no default: the database URL.
+Copy [`.env.example`](.env.example) to `.env` and adjust if needed, or export
+`OWP_DATABASE_URL` manually. The database URL is required in configuration;
+the server starts even when Postgres is temporarily unreachable (see
+`/health` vs `/health/ready`).
 
 ```bash
-export OWP_DATABASE_URL=postgresql://owp:owp@127.0.0.1:5432/owp
+cp .env.example .env   # omit on Windows: copy .env.example .env
 owp-backend
 ```
 
-For the default local stack from [`infra/docker/`](../infra/docker/):
+Or set the URL inline for the default local stack from
+[`infra/docker/`](../infra/docker/):
 
 ```bash
 OWP_DATABASE_URL=postgresql://owp:owp@127.0.0.1:5432/owp owp-backend
