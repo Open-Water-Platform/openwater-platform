@@ -9,9 +9,10 @@ import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
-from owp_backend.db import Database, DeviceRow
+from owp_backend.db import Database, DeviceRow, ReadingRow
 from owp_backend.routes.devices import router as devices_router
 from owp_backend.routes.health import router as health_router
+from owp_backend.routes.readings import router as readings_router
 
 
 def _build_health_app(database: Database) -> FastAPI:
@@ -120,4 +121,78 @@ async def test_get_device_returns_404_when_missing(test_settings) -> None:
         response = await client.get("/api/v1/devices/missing")
 
     assert response.status_code == 404
+
+
+def _sample_reading_row() -> ReadingRow:
+    now = datetime(2026, 5, 24, 19, 22, 30, tzinfo=timezone.utc)
+    return ReadingRow(
+        device_id="owp-0001",
+        recorded_at=now,
+        parameter="temperature",
+        value=21.5,
+        unit="C",
+    )
+
+
+def _build_readings_app(database: Database) -> FastAPI:
+    app = FastAPI()
+    app.state.database = database
+    app.include_router(readings_router)
+    return app
+
+
+@pytest.mark.unit
+async def test_list_readings_returns_paginated_payload(test_settings) -> None:
+    database = Database(test_settings)
+    database.device_exists = AsyncMock(return_value=True)
+    database.count_readings = AsyncMock(return_value=1)
+    database.list_readings = AsyncMock(return_value=[_sample_reading_row()])
+    app = _build_readings_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/devices/owp-0001/readings")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] == 1
+    assert body["items"][0]["parameter"] == "temperature"
+
+
+@pytest.mark.unit
+async def test_list_readings_returns_404_for_unknown_device(test_settings) -> None:
+    database = Database(test_settings)
+    database.device_exists = AsyncMock(return_value=False)
+    app = _build_readings_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/devices/missing/readings")
+
+    assert response.status_code == 404
+
+
+@pytest.mark.unit
+async def test_list_readings_returns_422_for_invalid_range(test_settings) -> None:
+    database = Database(test_settings)
+    app = _build_readings_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/api/v1/devices/owp-0001/readings",
+            params={
+                "from": "2026-05-25T00:00:00Z",
+                "to": "2026-05-24T00:00:00Z",
+            },
+        )
+
+    assert response.status_code == 422
+
 
