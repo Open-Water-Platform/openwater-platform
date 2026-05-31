@@ -50,18 +50,21 @@ first.
 3. Install [uv](https://docs.astral.sh/uv/getting-started/installation/),
    the package manager used across the project's Python services.
 
-4. Set up the ingestion service (the only Python service today).
+4. Set up the Python services.
 
    ```bash
    cd ingestion
    uv sync --all-extras
+   cd ../backend
+   uv sync --all-extras
    ```
 
-   This creates `ingestion/.venv/` and installs the locked versions of
-   every runtime and dev dependency.
+   This creates `ingestion/.venv/` and `backend/.venv/` and installs
+   the locked versions of every runtime and dev dependency for each
+   service.
 
-   If you would rather use plain pip, the project still supports
-   `pip install -e ".[dev]"` from `ingestion/` as a fallback.
+   If you would rather use plain pip, each service still supports
+   `pip install -e ".[dev]"` from its directory as a fallback.
 
 5. Make your changes on a feature branch.
 
@@ -79,6 +82,9 @@ The test strategy, layout, and conventions live in
 
 ```bash
 cd ingestion
+uv run pytest tests/unit
+
+cd ../backend
 uv run pytest tests/unit
 ```
 
@@ -119,7 +125,8 @@ good reference for the style level we aim for.
 Before opening a PR, please confirm:
 
 - [ ] Tests added or updated for any behaviour change.
-- [ ] `uv run pytest tests/unit` passes locally from `ingestion/`.
+- [ ] `uv run pytest tests/unit` passes locally from `ingestion/` and
+      `backend/` as applicable.
 - [ ] Relevant docs updated (`docs/`, service `README.md`, or
       `docs/testing.md` if you changed the test setup).
 - [ ] Commit messages explain *why*, not just *what*.
