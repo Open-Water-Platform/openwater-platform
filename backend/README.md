@@ -103,26 +103,3 @@ uv run pytest tests/unit -v
 
 See [`docs/testing.md`](../docs/testing.md) for project-wide test conventions.
 
-## Layout
-
-```
-backend/
-├── pyproject.toml
-├── Dockerfile
-├── README.md
-└── owp_backend/
-    ├── config.py
-    ├── db.py
-    ├── schemas.py
-    ├── dependencies.py
-    ├── errors.py
-    ├── main.py
-    └── routes/
-        ├── health.py
-        ├── devices.py
-        └── readings.py
-```
-
-## License
-
-Apache-2.0 — see the repository [`LICENSE`](../LICENSE).
