@@ -7,7 +7,14 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from owp_backend.schemas import DeviceOut, HealthResponse, LocationOut, PaginatedResponse
+from owp_backend.schemas import (
+    DeviceOut,
+    HealthResponse,
+    LocationOut,
+    PaginatedResponse,
+    ReadingsQueryParams,
+    SortOrder,
+)
 
 
 @pytest.mark.unit
@@ -45,4 +52,20 @@ def test_device_out_null_location() -> None:
         location=None,
     )
     assert device.location is None
+
+
+@pytest.mark.unit
+def test_readings_query_rejects_invalid_range() -> None:
+    start = datetime(2026, 5, 25, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 24, tzinfo=timezone.utc)
+    with pytest.raises(ValidationError):
+        ReadingsQueryParams.model_validate(
+            {"from": start.isoformat(), "to": end.isoformat()}
+        )
+
+
+@pytest.mark.unit
+def test_sort_order_values() -> None:
+    assert SortOrder.DESC.value == "desc"
+
 
