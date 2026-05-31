@@ -34,7 +34,7 @@ section below.
 |---|---|---|---|
 | Ingestion ([`ingestion/`](../ingestion/)) | implemented | planned | planned |
 | Database / migrations ([`database/`](../database/)) | n/a | planned | planned |
-| API backend | not yet built | not yet built | not yet built |
+| API backend ([`backend/`](../backend/)) | implemented | planned | planned |
 | Dashboard | not yet built | not yet built | not yet built |
 | Sensor firmware | not yet built | not yet built | not yet built |
 
@@ -64,9 +64,23 @@ Live in [`ingestion/tests/unit/`](../ingestion/tests/unit/):
 86 tests total at time of writing; the suite finishes in under a
 second.
 
+### Backend service unit tests
+
+Live in [`backend/tests/unit/`](../backend/tests/unit/):
+
+| File | Pins |
+|---|---|
+| `test_config.py` | The operator-facing `Settings` contract: required env vars, defaults, `OWP_` prefix enforcement, pagination limit validators. |
+| `test_schemas.py` | API response models, pagination envelopes, readings query time-range validation. |
+| `test_db.py` | Read-only query SQL wiring: pool lifecycle, device and reading list/count/latest helpers. |
+| `test_routes.py` | HTTP layer: health probes, device and readings endpoints, 404/422/200 behaviour with mocked database. |
+
+29 tests total at time of writing; the suite finishes in under a
+second.
+
 ### CI
 
-`.github/workflows/ci.yml` runs the ingestion unit suite on every push
+`.github/workflows/ci.yml` runs the ingestion and backend unit suites on every push
 to `main` and every pull request, against Python 3.11 and 3.12, using
 uv (`astral-sh/setup-uv@v3`). The lockfile is enforced with
 `uv sync --locked`, so a missed `uv lock` after a dependency change
@@ -117,6 +131,17 @@ pytest tests/unit
 uv is still the path CI uses; the fallback is documented so the door
 stays open for contributors with constrained environments.
 
+### Run the backend unit suite
+
+```bash
+cd backend
+uv sync --all-extras
+uv run pytest tests/unit
+```
+
+The first `uv sync` creates `backend/.venv/` and installs the locked
+versions of every runtime and dev dependency.
+
 ## How CI runs the tests
 
 CI is defined in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml).
@@ -145,6 +170,8 @@ a merge gate, configure branch protection on `main`:
   checks to pass before merging*.
 - Add `ingestion / unit (py3.11)` and `ingestion / unit (py3.12)` as
   required checks.
+- Add `backend / unit (py3.11)` and `backend / unit (py3.12)` when
+  branch protection is updated for the new service.
 
 For OSS hygiene, also leave *Approval for first-time contributors* on
 in repo Settings -> Actions -> General. Workflows on PRs from new
