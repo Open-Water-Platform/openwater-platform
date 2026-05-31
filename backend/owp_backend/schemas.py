@@ -36,3 +36,20 @@ class HealthResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: str
+
+
+class DeviceOut(BaseModel):
+    """Device metadata exposed by the API."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    device_id: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    firmware_version: str | None = None
+    location: LocationOut | None = None
+
+
+class PaginatedDevicesOut(PaginatedResponse[DeviceOut]):
+    """Paginated list of devices."""
+
