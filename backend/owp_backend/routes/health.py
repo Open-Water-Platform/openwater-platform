@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response, status
 
+from owp_backend.db import DatabaseUnavailableError
 from owp_backend.dependencies import DatabaseDep
 from owp_backend.schemas import HealthResponse
 
@@ -23,7 +24,7 @@ async def readiness(database: DatabaseDep, response: Response) -> HealthResponse
 
     try:
         await database.ping()
-    except Exception:
+    except DatabaseUnavailableError:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
         return HealthResponse(status="db is unavailable")
     return HealthResponse(status="db is ready")

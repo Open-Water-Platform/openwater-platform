@@ -7,6 +7,7 @@ writes per the architecture table-ownership rules.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import datetime
@@ -19,6 +20,15 @@ from .config import Settings
 logger = logging.getLogger(__name__)
 
 _PING_SQL: Final[str] = "SELECT 1"
+
+_CONNECT_RETRYABLE_EXCEPTIONS: Final[tuple[type[BaseException], ...]] = (
+    asyncpg.PostgresConnectionError,
+    asyncpg.exceptions.InterfaceError,
+    ConnectionError,
+    OSError,
+    TimeoutError,
+    asyncio.TimeoutError,
+)
 
 _LIST_DEVICES_SQL: Final[str] = """
     SELECT device_id, first_seen_at, last_seen_at,
@@ -92,6 +102,10 @@ class ReadingRow:
     unit: str
 
 
+class DatabaseUnavailableError(Exception):
+    """Raised when the database pool cannot be opened or queried."""
+
+
 class Database:
     """Async wrapper around an asyncpg pool with read-only queries."""
 
@@ -100,7 +114,12 @@ class Database:
         self._pool: asyncpg.Pool | None = None
 
     async def connect(self) -> None:
-        """Open the connection pool. Idempotent."""
+        """Open the connection pool. Idempotent.
+
+        Callers that need a graceful unavailable signal should use
+        :meth:`ping` or the read query methods, which translate connection
+        failures into :class:`DatabaseUnavailableError`.
+        """
 
         if self._pool is not None:
             return
@@ -111,12 +130,16 @@ class Database:
             self._settings.db_pool_max_size,
             self._settings.db_command_timeout,
         )
-        self._pool = await asyncpg.create_pool(
-            dsn=self._settings.database_url,
-            min_size=self._settings.db_pool_min_size,
-            max_size=self._settings.db_pool_max_size,
-            command_timeout=self._settings.db_command_timeout,
-        )
+        try:
+            self._pool = await asyncpg.create_pool(
+                dsn=self._settings.database_url,
+                min_size=self._settings.db_pool_min_size,
+                max_size=self._settings.db_pool_max_size,
+                command_timeout=self._settings.db_command_timeout,
+            )
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            logger.warning("postgres pool unavailable: %s", exc)
+            raise DatabaseUnavailableError(str(exc)) from exc
         logger.info("postgres pool ready")
 
     async def close(self) -> None:
@@ -131,32 +154,44 @@ class Database:
     async def ping(self) -> None:
         """Verify the database accepts queries. Used by readiness checks."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            await conn.fetchval(_PING_SQL)
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                await conn.fetchval(_PING_SQL)
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
 
     async def count_devices(self) -> int:
         """Return the total number of registered devices."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            total = await conn.fetchval(_COUNT_DEVICES_SQL)
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                total = await conn.fetchval(_COUNT_DEVICES_SQL)
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         return int(total)
 
     async def list_devices(self, *, limit: int, offset: int) -> list[DeviceRow]:
         """Return a page of devices ordered by most recently seen."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(_LIST_DEVICES_SQL, limit, offset)
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(_LIST_DEVICES_SQL, limit, offset)
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         return [_device_row_from_record(row) for row in rows]
 
     async def get_device(self, device_id: str) -> DeviceRow | None:
         """Return one device by id, or ``None`` if not registered."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            row = await conn.fetchrow(_GET_DEVICE_SQL, device_id)
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                row = await conn.fetchrow(_GET_DEVICE_SQL, device_id)
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         if row is None:
             return None
         return _device_row_from_record(row)
@@ -164,9 +199,12 @@ class Database:
     async def device_exists(self, device_id: str) -> bool:
         """Return whether a device id is registered."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            value = await conn.fetchval(_DEVICE_EXISTS_SQL, device_id)
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                value = await conn.fetchval(_DEVICE_EXISTS_SQL, device_id)
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         return value is not None
 
     async def count_readings(
@@ -179,15 +217,18 @@ class Database:
     ) -> int:
         """Return the number of readings matching the filters."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            total = await conn.fetchval(
-                _COUNT_READINGS_SQL,
-                device_id,
-                recorded_from,
-                recorded_to,
-                parameter,
-            )
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                total = await conn.fetchval(
+                    _COUNT_READINGS_SQL,
+                    device_id,
+                    recorded_from,
+                    recorded_to,
+                    parameter,
+                )
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         return int(total)
 
     async def list_readings(
@@ -207,17 +248,20 @@ class Database:
             raise ValueError(f"unsupported order: {order}")
 
         sql = _LIST_READINGS_SQL.format(order=order.upper())
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                sql,
-                device_id,
-                recorded_from,
-                recorded_to,
-                parameter,
-                limit,
-                offset,
-            )
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    sql,
+                    device_id,
+                    recorded_from,
+                    recorded_to,
+                    parameter,
+                    limit,
+                    offset,
+                )
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         return [_reading_row_from_record(row) for row in rows]
 
     async def list_latest_readings(
@@ -228,18 +272,25 @@ class Database:
     ) -> list[ReadingRow]:
         """Return the latest reading per parameter for one device."""
 
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            rows = await conn.fetch(
-                _LATEST_READINGS_SQL,
-                device_id,
-                parameter,
-            )
+        try:
+            pool = await self._ensure_pool()
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    _LATEST_READINGS_SQL,
+                    device_id,
+                    parameter,
+                )
+        except _CONNECT_RETRYABLE_EXCEPTIONS as exc:
+            raise DatabaseUnavailableError(str(exc)) from exc
         return [_reading_row_from_record(row) for row in rows]
 
-    def _require_pool(self) -> asyncpg.Pool:
+    async def _ensure_pool(self) -> asyncpg.Pool:
+        """Return an open pool, connecting lazily on first use."""
+
         if self._pool is None:
-            raise RuntimeError("Database.connect() must be called before queries")
+            await self.connect()
+        if self._pool is None:
+            raise DatabaseUnavailableError("postgres pool is not available")
         return self._pool
 
 

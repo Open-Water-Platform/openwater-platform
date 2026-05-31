@@ -7,9 +7,10 @@ from unittest.mock import AsyncMock
 
 import pytest
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
-from owp_backend.db import Database, DeviceRow, ReadingRow
+from owp_backend.db import Database, DatabaseUnavailableError, DeviceRow, ReadingRow
 from owp_backend.routes.devices import router as devices_router
 from owp_backend.routes.health import router as health_router
 from owp_backend.routes.readings import router as readings_router
@@ -34,7 +35,7 @@ async def test_liveness_returns_ok(test_settings) -> None:
         response = await client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+    assert response.json() == {"status": "backend is running"}
 
 
 @pytest.mark.unit
@@ -50,14 +51,14 @@ async def test_readiness_returns_ready_when_db_ok(test_settings) -> None:
         response = await client.get("/health/ready")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ready"}
+    assert response.json() == {"status": "db is ready"}
     database.ping.assert_awaited_once()
 
 
 @pytest.mark.unit
 async def test_readiness_returns_503_when_db_fails(test_settings) -> None:
     database = Database(test_settings)
-    database.ping = AsyncMock(side_effect=RuntimeError("db down"))
+    database.ping = AsyncMock(side_effect=DatabaseUnavailableError("db down"))
     app = _build_health_app(database)
 
     async with AsyncClient(
@@ -67,7 +68,25 @@ async def test_readiness_returns_503_when_db_fails(test_settings) -> None:
         response = await client.get("/health/ready")
 
     assert response.status_code == 503
-    assert response.json() == {"status": "unavailable"}
+    assert response.json() == {"status": "db is unavailable"}
+
+
+@pytest.mark.unit
+async def test_liveness_works_without_database_connection(test_settings) -> None:
+    database = Database(test_settings)
+    database.ping = AsyncMock(
+        side_effect=DatabaseUnavailableError("should not be called")
+    )
+    app = _build_health_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/health")
+
+    assert response.status_code == 200
+    database.ping.assert_not_called()
 
 
 def _sample_device_row() -> DeviceRow:
@@ -86,6 +105,17 @@ def _build_devices_app(database: Database) -> FastAPI:
     app = FastAPI()
     app.state.database = database
     app.include_router(devices_router)
+
+    @app.exception_handler(DatabaseUnavailableError)
+    async def database_unavailable_handler(
+        request,
+        exc: DatabaseUnavailableError,
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "Database unavailable"},
+        )
+
     return app
 
 
@@ -121,6 +151,24 @@ async def test_get_device_returns_404_when_missing(test_settings) -> None:
         response = await client.get("/api/v1/devices/missing")
 
     assert response.status_code == 404
+
+
+@pytest.mark.unit
+async def test_list_devices_returns_503_when_db_unavailable(test_settings) -> None:
+    database = Database(test_settings)
+    database.count_devices = AsyncMock(
+        side_effect=DatabaseUnavailableError("connection refused")
+    )
+    app = _build_devices_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/devices")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Database unavailable"}
 
 
 def _sample_reading_row() -> ReadingRow:
