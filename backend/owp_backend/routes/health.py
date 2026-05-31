@@ -14,7 +14,7 @@ router = APIRouter(tags=["health"])
 async def liveness() -> HealthResponse:
     """Process liveness probe — does not touch the database."""
 
-    return HealthResponse(status="ok")
+    return HealthResponse(status="backend is running")
 
 
 @router.get("/health/ready", response_model=HealthResponse)
@@ -25,5 +25,5 @@ async def readiness(database: DatabaseDep, response: Response) -> HealthResponse
         await database.ping()
     except Exception:
         response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
-        return HealthResponse(status="unavailable")
-    return HealthResponse(status="ready")
+        return HealthResponse(status="db is unavailable")
+    return HealthResponse(status="db is ready")
