@@ -39,6 +39,35 @@ _GET_DEVICE_SQL: Final[str] = """
 
 _DEVICE_EXISTS_SQL: Final[str] = "SELECT 1 FROM devices WHERE device_id = $1"
 
+_LIST_READINGS_SQL: Final[str] = """
+    SELECT device_id, recorded_at, parameter, value, unit
+    FROM readings
+    WHERE device_id = $1
+      AND ($2::timestamptz IS NULL OR recorded_at >= $2)
+      AND ($3::timestamptz IS NULL OR recorded_at <= $3)
+      AND ($4::text IS NULL OR parameter = $4)
+    ORDER BY recorded_at {order}
+    LIMIT $5 OFFSET $6
+"""
+
+_COUNT_READINGS_SQL: Final[str] = """
+    SELECT COUNT(*)
+    FROM readings
+    WHERE device_id = $1
+      AND ($2::timestamptz IS NULL OR recorded_at >= $2)
+      AND ($3::timestamptz IS NULL OR recorded_at <= $3)
+      AND ($4::text IS NULL OR parameter = $4)
+"""
+
+_LATEST_READINGS_SQL: Final[str] = """
+    SELECT DISTINCT ON (parameter)
+           device_id, recorded_at, parameter, value, unit
+    FROM readings
+    WHERE device_id = $1
+      AND ($2::text IS NULL OR parameter = $2)
+    ORDER BY parameter, recorded_at DESC
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class DeviceRow:
@@ -140,6 +169,74 @@ class Database:
             value = await conn.fetchval(_DEVICE_EXISTS_SQL, device_id)
         return value is not None
 
+    async def count_readings(
+        self,
+        device_id: str,
+        *,
+        recorded_from: datetime | None,
+        recorded_to: datetime | None,
+        parameter: str | None,
+    ) -> int:
+        """Return the number of readings matching the filters."""
+
+        pool = self._require_pool()
+        async with pool.acquire() as conn:
+            total = await conn.fetchval(
+                _COUNT_READINGS_SQL,
+                device_id,
+                recorded_from,
+                recorded_to,
+                parameter,
+            )
+        return int(total)
+
+    async def list_readings(
+        self,
+        device_id: str,
+        *,
+        recorded_from: datetime | None,
+        recorded_to: datetime | None,
+        parameter: str | None,
+        order: str,
+        limit: int,
+        offset: int,
+    ) -> list[ReadingRow]:
+        """Return a page of readings for one device."""
+
+        if order not in {"asc", "desc"}:
+            raise ValueError(f"unsupported order: {order}")
+
+        sql = _LIST_READINGS_SQL.format(order=order.upper())
+        pool = self._require_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                sql,
+                device_id,
+                recorded_from,
+                recorded_to,
+                parameter,
+                limit,
+                offset,
+            )
+        return [_reading_row_from_record(row) for row in rows]
+
+    async def list_latest_readings(
+        self,
+        device_id: str,
+        *,
+        parameter: str | None,
+    ) -> list[ReadingRow]:
+        """Return the latest reading per parameter for one device."""
+
+        pool = self._require_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                _LATEST_READINGS_SQL,
+                device_id,
+                parameter,
+            )
+        return [_reading_row_from_record(row) for row in rows]
+
     def _require_pool(self) -> asyncpg.Pool:
         if self._pool is None:
             raise RuntimeError("Database.connect() must be called before queries")
@@ -154,4 +251,14 @@ def _device_row_from_record(row: asyncpg.Record) -> DeviceRow:
         firmware_version=row["firmware_version"],
         location_lat=row["location_lat"],
         location_lon=row["location_lon"],
+    )
+
+
+def _reading_row_from_record(row: asyncpg.Record) -> ReadingRow:
+    return ReadingRow(
+        device_id=row["device_id"],
+        recorded_at=row["recorded_at"],
+        parameter=row["parameter"],
+        value=row["value"],
+        unit=row["unit"],
     )

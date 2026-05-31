@@ -116,3 +116,28 @@ async def test_device_exists(test_settings: Settings) -> None:
 
     assert await database.device_exists("owp-0001") is True
 
+
+@pytest.mark.unit
+async def test_list_readings_uses_order_clause(test_settings: Settings) -> None:
+    database = Database(test_settings)
+    mock_conn = AsyncMock()
+    mock_conn.fetch = AsyncMock(return_value=[])
+    mock_pool = MagicMock()
+    mock_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+    mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=False)
+    database._pool = mock_pool  # noqa: SLF001
+
+    await database.list_readings(
+        "owp-0001",
+        recorded_from=None,
+        recorded_to=None,
+        parameter=None,
+        order="desc",
+        limit=10,
+        offset=0,
+    )
+
+    sql_used = mock_conn.fetch.await_args.args[0]
+    assert "ORDER BY recorded_at DESC" in sql_used
+
+
