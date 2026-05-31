@@ -9,7 +9,8 @@ from owp_backend.config import Settings, load_settings
 
 
 @pytest.mark.unit
-def test_settings_requires_database_url() -> None:
+def test_settings_requires_database_url(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("OWP_DATABASE_URL", raising=False)
     with pytest.raises(ValidationError):
         Settings()  # type: ignore[call-arg]
 

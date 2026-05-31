@@ -5,6 +5,15 @@ from __future__ import annotations
 import pytest
 
 from owp_backend.config import Settings
+from owp_backend.dependencies import get_settings
+
+
+@pytest.fixture(autouse=True)
+def _set_required_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ensure settings can load without a local ``.env`` file."""
+
+    monkeypatch.setenv("OWP_DATABASE_URL", "postgresql://test:test@127.0.0.1:5432/test")
+    get_settings.cache_clear()
 
 
 @pytest.fixture
