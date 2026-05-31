@@ -196,3 +196,39 @@ async def test_list_readings_returns_422_for_invalid_range(test_settings) -> Non
     assert response.status_code == 422
 
 
+@pytest.mark.unit
+async def test_latest_readings_returns_values(test_settings) -> None:
+    database = Database(test_settings)
+    database.device_exists = AsyncMock(return_value=True)
+    database.list_latest_readings = AsyncMock(return_value=[_sample_reading_row()])
+    app = _build_readings_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/devices/owp-0001/readings/latest")
+
+    assert response.status_code == 200
+    assert response.json()[0]["parameter"] == "temperature"
+
+
+@pytest.mark.unit
+async def test_latest_readings_returns_404_when_empty(test_settings) -> None:
+    database = Database(test_settings)
+    database.device_exists = AsyncMock(return_value=True)
+    database.list_latest_readings = AsyncMock(return_value=[])
+    app = _build_readings_app(database)
+
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+    ) as client:
+        response = await client.get(
+            "/api/v1/devices/owp-0001/readings/latest",
+            params={"parameter": "temperature"},
+        )
+
+    assert response.status_code == 404
+
+

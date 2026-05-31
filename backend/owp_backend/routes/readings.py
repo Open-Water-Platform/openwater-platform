@@ -100,3 +100,20 @@ async def list_readings(
         offset=query.offset,
         total=total,
     )
+
+
+@router.get("/latest", response_model=list[ReadingOut])
+async def latest_readings(
+    device_id: str,
+    database: DatabaseDep,
+    parameter: str | None = Query(default=None),
+) -> list[ReadingOut]:
+    """Return the latest reading per parameter for one device."""
+
+    await _ensure_device_exists(database, device_id)
+
+    rows = await database.list_latest_readings(device_id, parameter=parameter)
+    if not rows:
+        raise reading_not_found(device_id, parameter)
+
+    return [_reading_to_out(row) for row in rows]
