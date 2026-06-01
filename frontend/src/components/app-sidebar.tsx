@@ -8,13 +8,9 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import {
   CircleHelpIcon,
-  DropletsIcon,
   LayoutDashboardIcon,
   LineChartIcon,
   MapPinIcon,
@@ -73,18 +69,14 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton
-              className="data-[slot=sidebar-menu-button]:p-1.5!"
-              render={<a href="#" />}
-            >
-              <DropletsIcon className="size-5!" />
-              <span className="text-base font-semibold">Open Water Platform</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
+      <SidebarHeader className="px-4 py-3">
+        <a href="/" className="block">
+          <img
+            src="/logo-main.png"
+            alt="Open Water Platform"
+            className="h-20 w-auto max-w-full object-contain object-left"
+          />
+        </a>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
