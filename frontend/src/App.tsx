@@ -2,7 +2,9 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom"
 
 import AppLayout from "@/layouts/app-layout"
 import DashboardPage from "@/pages/DashboardPage"
-import DevicesPage from "@/pages/DevicesPage"
+import DeviceAnalytics from "@/pages/devices/DeviceAnalytics"
+import DevicesIndex from "@/pages/devices/DevicesIndex"
+import DevicesPage from "@/pages/devices/DevicesPage"
 
 const router = createBrowserRouter([
   {
@@ -17,6 +19,16 @@ const router = createBrowserRouter([
         path: "devices",
         element: <DevicesPage />,
         handle: { title: "Devices" },
+        children: [
+          {
+            index: true,
+            element: <DevicesIndex />,
+          },
+          {
+            path: ":deviceId",
+            element: <DeviceAnalytics />,
+          },
+        ],
       },
     ],
   },
