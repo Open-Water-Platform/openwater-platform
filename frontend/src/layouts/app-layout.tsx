@@ -25,7 +25,7 @@ export default function AppLayout() {
       className="h-svh overflow-hidden"
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--sidebar-width": "calc(var(--spacing) * 60)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as CSSProperties
       }
