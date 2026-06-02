@@ -7,9 +7,9 @@ export default function DevicesPage() {
   const { devices, loading } = useDevices()
 
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1 overflow-hidden">
       <DeviceSidebar devices={devices} loading={loading} />
-      <div className="flex min-w-0 flex-1 flex-col overflow-auto">
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
         <Outlet />
       </div>
     </div>

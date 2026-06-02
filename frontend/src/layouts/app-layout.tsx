@@ -22,6 +22,7 @@ export default function AppLayout() {
 
   return (
     <SidebarProvider
+      className="h-svh overflow-hidden"
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 72)",
@@ -31,9 +32,9 @@ export default function AppLayout() {
     >
       {/* Sidebar variant: 'none' (default, straight edge) | 'variant="inset"'(rounded content panel) | 'variant="floating"' (rounded floating sidebar) */}
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className="min-h-0 overflow-hidden">
         <SiteHeader title={title?.title ?? "Dashboard"} />
-        <div className="flex flex-1 flex-col">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <Outlet />
         </div>
       </SidebarInset>
