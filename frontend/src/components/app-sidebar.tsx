@@ -70,13 +70,18 @@ const data = {
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
-    <Sidebar collapsible="offcanvas" {...props}>
-      <SidebarHeader className="px-4 py-3">
+    <Sidebar collapsible="icon" {...props}>
+      <SidebarHeader className="px-4 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
         <Link to="/" className="block">
           <img
             src="/logo.svg"
             alt="Open Water Platform"
-            className="h-10 w-auto max-w-full object-contain object-left"
+            className="h-10 w-auto max-w-full object-contain object-left group-data-[collapsible=icon]:hidden"
+          />
+          <img
+            src="/icon-main.svg"
+            alt="Open Water Platform"
+            className="mx-auto hidden size-8 object-contain group-data-[collapsible=icon]:block"
           />
         </Link>
       </SidebarHeader>
