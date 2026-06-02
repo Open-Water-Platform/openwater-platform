@@ -1,5 +1,7 @@
 import * as React from "react"
 
+import { Link } from "react-router-dom"
+
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
@@ -33,7 +35,7 @@ const data = {
     },
     {
       title: "Devices",
-      url: "#",
+      url: "/devices",
       icon: <RadioIcon />,
     },
     {
@@ -70,13 +72,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader className="px-4 py-3">
-        <a href="/" className="block">
+        <Link to="/" className="block">
           <img
             src="/logo.svg"
             alt="Open Water Platform"
             className="h-10 w-auto max-w-full object-contain object-left"
           />
-        </a>
+        </Link>
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
