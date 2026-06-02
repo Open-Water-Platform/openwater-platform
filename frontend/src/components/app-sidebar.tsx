@@ -72,9 +72,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       <SidebarHeader className="px-4 py-3">
         <a href="/" className="block">
           <img
-            src="/logo-main.png"
+            src="/logo.svg"
             alt="Open Water Platform"
-            className="h-20 w-auto max-w-full object-contain object-left"
+            className="h-10 w-auto max-w-full object-contain object-left"
           />
         </a>
       </SidebarHeader>
