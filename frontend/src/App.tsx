@@ -5,6 +5,9 @@ import DashboardPage from "@/pages/dashboard/DashboardPage"
 import DeviceAnalytics from "@/pages/devices/DeviceAnalytics"
 import DevicesIndex from "@/pages/devices/DevicesIndex"
 import DevicesPage from "@/pages/devices/DevicesPage"
+import GetHelpPage from "@/pages/help/GetHelpPage"
+import SettingsPage from "@/pages/settings/SettingsPage"
+import SitesPage from "@/pages/sites/SitesPage"
 
 const router = createBrowserRouter([
   {
@@ -14,6 +17,21 @@ const router = createBrowserRouter([
         index: true,
         element: <DashboardPage />,
         handle: { title: "Dashboard" },
+      },
+      {
+        path: "sites",
+        element: <SitesPage />,
+        handle: { title: "Sites" },
+      },
+      {
+        path: "settings",
+        element: <SettingsPage />,
+        handle: { title: "Settings" },
+      },
+      {
+        path: "get-help",
+        element: <GetHelpPage />,
+        handle: { title: "Get Help" },
       },
       {
         path: "devices",
