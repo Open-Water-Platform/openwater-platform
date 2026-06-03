@@ -1,6 +1,4 @@
-"use client"
-
-import * as React from "react"
+import { Link, useLocation } from "react-router-dom"
 
 import {
   SidebarGroup,
@@ -9,6 +7,14 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+
+function isNavItemActive(pathname: string, url: string) {
+  if (url === "/") {
+    return pathname === "/"
+  }
+
+  return pathname === url || pathname.startsWith(`${url}/`)
+}
 
 export function NavSecondary({
   items,
@@ -20,13 +26,19 @@ export function NavSecondary({
     icon: React.ReactNode
   }[]
 } & React.ComponentPropsWithoutRef<typeof SidebarGroup>) {
+  const { pathname } = useLocation()
+
   return (
     <SidebarGroup {...props}>
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title} render={<a href={item.url} />}>
+              <SidebarMenuButton
+                tooltip={item.title}
+                isActive={isNavItemActive(pathname, item.url)}
+                render={<Link to={item.url} />}
+              >
                 {item.icon}
                 <span>{item.title}</span>
               </SidebarMenuButton>

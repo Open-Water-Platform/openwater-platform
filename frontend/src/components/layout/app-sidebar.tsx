@@ -38,19 +38,19 @@ const data = {
     },
     {
       title: "Sites",
-      url: "#",
+      url: "/sites",
       icon: <MapPinIcon />,
     },
   ],
   navSecondary: [
     {
       title: "Settings",
-      url: "#",
+      url: "/settings",
       icon: <Settings2Icon />,
     },
     {
       title: "Get Help",
-      url: "#",
+      url: "/get-help",
       icon: <CircleHelpIcon />,
     },
   ],
