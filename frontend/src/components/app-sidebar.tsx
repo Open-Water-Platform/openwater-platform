@@ -14,10 +14,8 @@ import {
 import {
   CircleHelpIcon,
   LayoutDashboardIcon,
-  LineChartIcon,
   MapPinIcon,
   RadioIcon,
-  SearchIcon,
   Settings2Icon,
 } from "lucide-react"
 
@@ -39,11 +37,6 @@ const data = {
       icon: <RadioIcon />,
     },
     {
-      title: "Readings",
-      url: "#",
-      icon: <LineChartIcon />,
-    },
-    {
       title: "Sites",
       url: "#",
       icon: <MapPinIcon />,
@@ -59,11 +52,6 @@ const data = {
       title: "Get Help",
       url: "#",
       icon: <CircleHelpIcon />,
-    },
-    {
-      title: "Search",
-      url: "#",
-      icon: <SearchIcon />,
     },
   ],
 }
