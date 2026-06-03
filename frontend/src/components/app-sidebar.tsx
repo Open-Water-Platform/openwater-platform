@@ -71,17 +71,20 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="px-4 py-3 group-data-[collapsible=icon]:px-2 group-data-[collapsible=icon]:py-2">
-        <Link to="/" className="block">
+      <SidebarHeader className="px-4 py-3">
+        <Link
+          to="/"
+          className="flex h-10 items-center group-data-[collapsible=icon]:justify-center"
+        >
           <img
             src="/logo.svg"
             alt="Open Water Platform"
-            className="h-10 w-auto max-w-full object-contain object-left group-data-[collapsible=icon]:hidden"
+            className="h-10 w-auto shrink-0 object-contain group-data-[collapsible=icon]:hidden"
           />
           <img
             src="/icon-main.svg"
             alt="Open Water Platform"
-            className="mx-auto hidden size-8 object-contain group-data-[collapsible=icon]:block"
+            className="hidden h-10 w-10 shrink-0 object-contain group-data-[collapsible=icon]:block"
           />
         </Link>
       </SidebarHeader>
