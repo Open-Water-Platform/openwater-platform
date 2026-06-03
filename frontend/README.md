@@ -1,21 +1,59 @@
-# React + TypeScript + Vite + shadcn/ui
+# Open Water Platform — Dashboard
 
-This is a template for a new Vite project with React, TypeScript, and shadcn/ui.
+The React dashboard for the platform. It calls the API backend for device
+data and (eventually) configuration changes. See
+[`docs/system_architecture.md`](../docs/system_architecture.md#dashboard)
+for where this component sits in the overall system, and
+[`docs/stack.md`](../docs/stack.md) for the chosen frontend stack.
 
-## Adding components
+> **Status.** Base layout, routing, and device views are implemented with a
+> mock API layer for local UI development. Wiring to the live backend
+> (`/api/v1`) and removing placeholder dashboard content are follow-ups.
 
-To add components to your app, run the following command:
+The dashboard never talks to PostgreSQL, the MQTT broker, or the ingestion
+service directly.
+
+## Requirements
+
+- Node.js 20 or newer (LTS recommended).
+- npm (ships with Node).
+
+For live API data during development, the backend should be running and
+reachable at the URL configured in `VITE_API_BASE_URL` (see
+[`backend/README.md`](../backend/README.md)). The app still runs without
+the backend while mocks are in use.
+
+## Install
+
+From the repository root:
 
 ```bash
-npx shadcn@latest add button
+cd frontend
+npm ci
 ```
 
-This will place the ui components in the `src/components` directory.
+Use `npm install` instead of `npm ci` only when you are intentionally
+updating `package-lock.json`.
 
-## Using components
+## Run
 
-To use the components in your app, import them as follows:
+Copy [`.env.example`](.env.example) to `.env` and adjust if needed:
 
-```tsx
-import { Button } from "@/components/ui/button"
+```bash
+cp .env.example .env   # Windows: copy .env.example .env
+npm run dev
 ```
+
+The dev server listens at `http://127.0.0.1:5173` by default (Vite).
+Open that URL in a browser.
+
+Production build and preview:
+
+```bash
+npm run build
+npm run preview
+```
+
+## License
+
+Apache-2.0 — see the repository [`LICENSE`](../LICENSE).
