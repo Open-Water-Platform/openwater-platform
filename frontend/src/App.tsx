@@ -1,7 +1,7 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom"
 
 import AppLayout from "@/layouts/app-layout"
-import DashboardPage from "@/pages/DashboardPage"
+import DashboardPage from "@/pages/dashboard/DashboardPage"
 import DeviceAnalytics from "@/pages/devices/DeviceAnalytics"
 import DevicesIndex from "@/pages/devices/DevicesIndex"
 import DevicesPage from "@/pages/devices/DevicesPage"
